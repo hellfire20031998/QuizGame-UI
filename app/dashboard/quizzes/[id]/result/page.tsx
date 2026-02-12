@@ -14,7 +14,6 @@ const MOCK_LEADERBOARD = [
 export default function ResultsPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navbar />
       
       <main className="max-w-4xl mx-auto px-4 py-10">
         

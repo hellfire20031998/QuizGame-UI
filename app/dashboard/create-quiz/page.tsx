@@ -102,9 +102,7 @@ export default function CreateQuizPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
-      <Navbar />
-      
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">      
       <main className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Create New Quiz</h1>
 
