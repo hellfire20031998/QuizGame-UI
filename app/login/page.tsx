@@ -14,7 +14,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // --- API Handler ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -33,7 +32,6 @@ export default function LoginPage() {
       });
 
       if (!response.ok) {
-        // Handle unauthorized or other errors
         throw new Error('Invalid credentials. Please check your email and password.');
       }
 

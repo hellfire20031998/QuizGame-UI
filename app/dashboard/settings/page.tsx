@@ -7,53 +7,56 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile');
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
-        <p className="text-gray-500 dark:text-gray-400">Manage your account preferences and security.</p>
-      </div>
+    // <div className="p-8 max-w-4xl mx-auto">
+    //   <div className="mb-8">
+    //     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+    //     <p className="text-gray-500 dark:text-gray-400">Manage your account preferences and security.</p>
+    //   </div>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Settings Navigation */}
-        <div className="w-full md:w-64 space-y-1">
-          <TabButton 
-            active={activeTab === 'profile'} 
-            onClick={() => setActiveTab('profile')}
-            icon={<User size={18} />} 
-            label="Profile" 
-          />
-          <TabButton 
-            active={activeTab === 'security'} 
-            onClick={() => setActiveTab('security')}
-            icon={<Lock size={18} />} 
-            label="Security" 
-          />
-          <TabButton 
-            active={activeTab === 'notifications'} 
-            onClick={() => setActiveTab('notifications')}
-            icon={<Bell size={18} />} 
-            label="Notifications" 
-          />
-          <TabButton 
-            active={activeTab === 'appearance'} 
-            onClick={() => setActiveTab('appearance')}
-            icon={<Moon size={18} />} 
-            label="Appearance" 
-          />
-        </div>
+    //   <div className="flex flex-col md:flex-row gap-8">
+    //     {/* Settings Navigation */}
+    //     <div className="w-full md:w-64 space-y-1">
+    //       <TabButton 
+    //         active={activeTab === 'profile'} 
+    //         onClick={() => setActiveTab('profile')}
+    //         icon={<User size={18} />} 
+    //         label="Profile" 
+    //       />
+    //       <TabButton 
+    //         active={activeTab === 'security'} 
+    //         onClick={() => setActiveTab('security')}
+    //         icon={<Lock size={18} />} 
+    //         label="Security" 
+    //       />
+    //       <TabButton 
+    //         active={activeTab === 'notifications'} 
+    //         onClick={() => setActiveTab('notifications')}
+    //         icon={<Bell size={18} />} 
+    //         label="Notifications" 
+    //       />
+    //       <TabButton 
+    //         active={activeTab === 'appearance'} 
+    //         onClick={() => setActiveTab('appearance')}
+    //         icon={<Moon size={18} />} 
+    //         label="Appearance" 
+    //       />
+    //     </div>
 
-        {/* Settings Content Area */}
-        <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-          {activeTab === 'profile' && <ProfileSettings />}
-          {activeTab === 'security' && <SecuritySettings />}
+    //     {/* Settings Content Area */}
+    //     <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+    //       {activeTab === 'profile' && <ProfileSettings />}
+    //       {activeTab === 'security' && <SecuritySettings />}
           
-          <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 flex justify-end">
-            <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-semibold transition-all">
-              <Save size={18} /> Save Changes
-            </button>
-          </div>
-        </div>
-      </div>
+    //       <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+    //         <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-semibold transition-all">
+    //           <Save size={18} /> Save Changes
+    //         </button>
+    //       </div>
+    //     </div>
+    //   </div>
+    // </div>
+    <div>
+        This will be come in future
     </div>
   );
 }

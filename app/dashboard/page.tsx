@@ -9,25 +9,29 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<{username: string} | null>(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
-      return;
-    }
-    setUser({ username: 'PlayerOne' });
-  }, [router]);
+useEffect(() => {
+  const token = localStorage.getItem('token');
+  const storedUser = localStorage.getItem('user');
+
+  if (!token) {
+    router.push('/login');
+    return;
+  }
+
+  if (storedUser) {
+    setUser(JSON.parse(storedUser));
+  } else {
+    // fallback if somehow user not stored
+    router.push('/login');
+  }
+}, [router]);
+
+
 
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-2xl font-bold">Welcome back, {user?.username}!</h2>
-        <Link 
-          href="/create-quiz" 
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-md flex items-center gap-2"
-        >
-          <PlusCircle size={18} /> New Quiz
-        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
