@@ -1,16 +1,26 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import Navbar from '@/components/Navbar';
-import { Plus, Trash2, Save, FileText, X, Search, Check } from 'lucide-react';
+import { Plus, Trash2, Save, FileText, X, Search, Check, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation'; // Added for redirect after success
 
-// --- Mock Data for Domains ---
-const AVAILABLE_DOMAINS = [
-  "Technology", "Science", "History", "Geography", "Movies", 
-  "Music", "Literature", "Sports", "Programming", "Java", 
-  "Python", "React", "General Knowledge", "Mathematics", 
-  "Physics", "Biology", "Chemistry", "Space", "Art"
-];
+// --- Types based on your JSON structure ---
+interface Domain {
+  id: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  deleted: boolean;
+  version: number;
+}
+
+interface ApiResponse {
+  success: boolean;
+  message: string;
+  data: Domain[];
+  errorCode: string | null;
+  timestamp: string;
+}
 
 interface Question {
   id: number;
@@ -20,6 +30,8 @@ interface Question {
 }
 
 export default function CreateQuizPage() {
+  const router = useRouter(); // For navigation after save
+  
   // --- Form State ---
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -28,18 +40,63 @@ export default function CreateQuizPage() {
   ]);
 
   // --- Domain Selector State ---
-  const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
+  const [selectedDomains, setSelectedDomains] = useState<Domain[]>([]); 
+  const [availableDomains, setAvailableDomains] = useState<Domain[]>([]); 
   const [domainSearch, setDomainSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // New state for save button loading
+   
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filter domains based on search and exclude already selected ones
-  const filteredDomains = AVAILABLE_DOMAINS.filter(domain => 
-    domain.toLowerCase().includes(domainSearch.toLowerCase()) && 
-    !selectedDomains.includes(domain)
-  );
+  // --- API Fetching Logic ---
 
-  // Close dropdown when clicking outside
+  const fetchLatestDomains = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('http://localhost:8080/domains/latest');
+      const data: ApiResponse = await res.json();
+      if (data.success) {
+        setAvailableDomains(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching latest domains:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const searchDomains = async (query: string) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`http://localhost:8080/domains/search?query=${encodeURIComponent(query)}`);
+      const data: ApiResponse = await res.json();
+      if (data.success) {
+        setAvailableDomains(data.data);
+      }
+    } catch (error) {
+      console.error("Error searching domains:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLatestDomains();
+  }, []);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (domainSearch.trim()) {
+        searchDomains(domainSearch);
+      } else {
+        fetchLatestDomains();
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [domainSearch]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -50,15 +107,19 @@ export default function CreateQuizPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const filteredAvailableDomains = availableDomains.filter(
+    domain => !selectedDomains.some(sd => sd.id === domain.id)
+  );
+
   // --- Domain Handlers ---
-  const addDomain = (domain: string) => {
+  const addDomain = (domain: Domain) => {
     setSelectedDomains([...selectedDomains, domain]);
-    setDomainSearch(''); // Clear search after selection
-    // Keep dropdown open for multiple selections
+    setDomainSearch(''); 
+    fetchLatestDomains(); 
   };
 
-  const removeDomain = (domain: string) => {
-    setSelectedDomains(selectedDomains.filter(d => d !== domain));
+  const removeDomain = (domainId: number) => {
+    setSelectedDomains(selectedDomains.filter(d => d.id !== domainId));
   };
 
   // --- Question Handlers ---
@@ -89,16 +150,65 @@ export default function CreateQuizPage() {
     }));
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  // --- Handle Save / Publish ---
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+
+    // 1. Transform state to API Payload structure
     const payload = { 
         title, 
         description, 
-        domains: selectedDomains, // Include domains in payload
-        questions 
+        // Map domain objects to just an array of IDs
+        domains: selectedDomains.map(d => d.id), 
+        // Transform questions to 'questionRequests' with 'optionRequests'
+        questionRequests: questions.map(q => ({
+            text: q.text,
+            optionRequests: q.options.map((optText, index) => ({
+                text: optText,
+                correct: index === q.correctOption // Boolean based on selected index
+            }))
+        }))
     };
-    console.log("Saving Quiz Payload:", payload);
-    alert('Quiz Created! Check the console for the JSON payload.');
+
+    console.log("Sending Payload:", JSON.stringify(payload, null, 2));
+
+    try {
+        // Retrieve token from local storage (or wherever you store it)
+        const token = localStorage.getItem('token'); 
+        
+        if (!token) {
+            alert('You are not logged in!');
+            setIsSaving(false);
+            return;
+        }
+
+        const response = await fetch('http://localhost:8080/quiz/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            alert('Quiz Published Successfully!');
+            console.log("Server Response:", result);
+            // Optional: Redirect to quiz list or detail page
+            // router.push('/quizzes'); 
+        } else {
+            const errorText = await response.text();
+            console.error("Failed to save:", errorText);
+            alert(`Failed to save quiz: ${response.status} ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error("Network Error:", error);
+        alert('Network error occurred while saving quiz.');
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   return (
@@ -154,11 +264,11 @@ export default function CreateQuizPage() {
                         >
                             {/* Selected Tags */}
                             {selectedDomains.map(domain => (
-                                <span key={domain} className="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
-                                    {domain}
+                                <span key={domain.id} className="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
+                                    {domain.name}
                                     <button 
                                         type="button"
-                                        onClick={(e) => { e.stopPropagation(); removeDomain(domain); }}
+                                        onClick={(e) => { e.stopPropagation(); removeDomain(domain.id); }}
                                         className="hover:text-indigo-900 focus:outline-none"
                                     >
                                         <X className="w-3 h-3" />
@@ -178,26 +288,27 @@ export default function CreateQuizPage() {
                                 }}
                                 onFocus={() => setIsDropdownOpen(true)}
                             />
+                            {isLoading && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
                         </div>
 
                         {/* Dropdown Menu */}
                         {isDropdownOpen && (
                             <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                {filteredDomains.length > 0 ? (
-                                    filteredDomains.map(domain => (
+                                {filteredAvailableDomains.length > 0 ? (
+                                    filteredAvailableDomains.map(domain => (
                                         <button
-                                            key={domain}
+                                            key={domain.id}
                                             type="button"
                                             onClick={() => addDomain(domain)}
                                             className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-200 flex items-center justify-between group"
                                         >
-                                            {domain}
+                                            {domain.name}
                                             <Plus className="w-4 h-4 opacity-0 group-hover:opacity-100 text-indigo-500" />
                                         </button>
                                     ))
                                 ) : (
                                     <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
-                                        No matching domains found.
+                                        {isLoading ? "Loading..." : "No matching domains found."}
                                     </div>
                                 )}
                             </div>
@@ -289,9 +400,18 @@ export default function CreateQuizPage() {
 
             <button 
               type="submit"
-              className="flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all transform hover:-translate-y-1 active:scale-95"
+              disabled={isSaving}
+              className={`flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all transform hover:-translate-y-1 active:scale-95 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              <Save className="w-5 h-5" /> Publish Quiz
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" /> Publishing...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" /> Publish Quiz
+                </>
+              )}
             </button>
           </div>
 
