@@ -38,21 +38,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // --- NEW: Sync Function to read from LocalStorage ---
   const syncUser = useCallback(() => {
+    const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const parsedUser: UserData = JSON.parse(storedUser);
-        setUser(parsedUser);
 
-        // Security Check
-        if (pathname === URLS.CREATE_QUIZ && parsedUser.role !== 'GAME_MASTER') {
-          router.replace(URLS.DASHBOARD);
-        }
-      } catch (error) {
-        console.error("Failed to parse user data", error);
-      }
+    if (!token || !storedUser) {
+      setUser(null);
+      setIsLoaded(true);
+      router.replace(URLS.LOGIN);
+      return;
     }
-    setIsLoaded(true);
+
+    try {
+      const parsedUser: UserData = JSON.parse(storedUser);
+      setUser(parsedUser);
+
+      // Role-based security for create quiz
+      if (pathname === URLS.CREATE_QUIZ && parsedUser.role !== 'GAME_MASTER') {
+        router.replace(URLS.DASHBOARD);
+      }
+    } catch (error) {
+      console.error("Failed to parse user data", error);
+    } finally {
+      setIsLoaded(true);
+    }
   }, [pathname, router]);
 
   // --- NEW: Event Listeners for Live Updates ---
@@ -81,6 +89,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const isGameMaster = user?.role === 'GAME_MASTER';
   const displayUsername = user?.username ? user.username.split('@')[0] : 'Guest';
+
+  if (!isLoaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-200">
+        <span className="text-sm font-medium">Loading your dashboard...</span>
+      </div>
+    );
+  }
 
   if (isAuthPage) return <>{children}</>;
 
@@ -121,7 +137,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </span>
             </div>
             
-            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-full flex items-center justify-center text-white border-2 border-white dark:border-gray-800 shadow-sm font-bold">
+            <div className="w-10 h-10 bg-linear-to-tr from-indigo-600 to-violet-500 rounded-full flex items-center justify-center text-white border-2 border-white dark:border-gray-800 shadow-sm font-bold">
               {displayUsername[0].toUpperCase()}
             </div>
           </div>

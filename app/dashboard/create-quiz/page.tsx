@@ -1,26 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Save, FileText, X, Search, Check, Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation'; // Added for redirect after success
-
-// --- Types based on your JSON structure ---
-interface Domain {
-  id: number;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  deleted: boolean;
-  version: number;
-}
-
-interface ApiResponse {
-  success: boolean;
-  message: string;
-  data: Domain[];
-  errorCode: string | null;
-  timestamp: string;
-}
+import { Plus, Trash2, Save, FileText, X, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { createQuiz, CreateQuizPayload } from '@/lib/api/quiz';
+import {
+  Domain,
+  fetchLatestDomains,
+  searchDomains as searchDomainsApi,
+} from '@/lib/api/domain';
+import { URLS } from '@/lib/constants/Urls';
 
 interface Question {
   id: number;
@@ -30,11 +19,13 @@ interface Question {
 }
 
 export default function CreateQuizPage() {
-  const router = useRouter(); // For navigation after save
+  const router = useRouter();
   
   // --- Form State ---
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+   // total time given to solve quiz (seconds)
+  const [timeLimitSeconds, setTimeLimitSeconds] = useState<number>(600);
   const [questions, setQuestions] = useState<Question[]>([
     { id: 1, text: '', options: ['', '', '', ''], correctOption: 0 }
   ]);
@@ -45,17 +36,16 @@ export default function CreateQuizPage() {
   const [domainSearch, setDomainSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // New state for save button loading
+  const [isSaving, setIsSaving] = useState(false);
    
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // --- API Fetching Logic ---
 
-  const fetchLatestDomains = async () => {
+  const loadLatestDomains = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('http://localhost:8080/domains/latest');
-      const data: ApiResponse = await res.json();
+      const data = await fetchLatestDomains();
       if (data.success) {
         setAvailableDomains(data.data);
       }
@@ -69,8 +59,7 @@ export default function CreateQuizPage() {
   const searchDomains = async (query: string) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:8080/domains/search?query=${encodeURIComponent(query)}`);
-      const data: ApiResponse = await res.json();
+      const data = await searchDomainsApi(query);
       if (data.success) {
         setAvailableDomains(data.data);
       }
@@ -82,7 +71,7 @@ export default function CreateQuizPage() {
   };
 
   useEffect(() => {
-    fetchLatestDomains();
+    loadLatestDomains();
   }, []);
 
   useEffect(() => {
@@ -90,7 +79,7 @@ export default function CreateQuizPage() {
       if (domainSearch.trim()) {
         searchDomains(domainSearch);
       } else {
-        fetchLatestDomains();
+        loadLatestDomains();
       }
     }, 300);
 
@@ -115,7 +104,7 @@ export default function CreateQuizPage() {
   const addDomain = (domain: Domain) => {
     setSelectedDomains([...selectedDomains, domain]);
     setDomainSearch(''); 
-    fetchLatestDomains(); 
+    loadLatestDomains(); 
   };
 
   const removeDomain = (domainId: number) => {
@@ -156,58 +145,29 @@ export default function CreateQuizPage() {
     setIsSaving(true);
 
     // 1. Transform state to API Payload structure
-    const payload = { 
-        title, 
-        description, 
-        // Map domain objects to just an array of IDs
-        domains: selectedDomains.map(d => d.id), 
-        // Transform questions to 'questionRequests' with 'optionRequests'
-        questionRequests: questions.map(q => ({
-            text: q.text,
-            optionRequests: q.options.map((optText, index) => ({
-                text: optText,
-                correct: index === q.correctOption // Boolean based on selected index
-            }))
-        }))
+    const payload: CreateQuizPayload = { 
+      title, 
+      description,
+      totalTimeInSeconds: timeLimitSeconds,
+      domains: selectedDomains.map(d => d.id),
+      questionRequests: questions.map(q => ({
+        text: q.text,
+        optionRequests: q.options.map((optText, index) => ({
+          text: optText,
+          correct: index === q.correctOption,
+        })),
+      })),
     };
 
-    console.log("Sending Payload:", JSON.stringify(payload, null, 2));
-
     try {
-        // Retrieve token from local storage (or wherever you store it)
-        const token = localStorage.getItem('token'); 
-        
-        if (!token) {
-            alert('You are not logged in!');
-            setIsSaving(false);
-            return;
-        }
-
-        const response = await fetch('http://localhost:8080/quiz/create', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            alert('Quiz Published Successfully!');
-            console.log("Server Response:", result);
-            // Optional: Redirect to quiz list or detail page
-            // router.push('/quizzes'); 
-        } else {
-            const errorText = await response.text();
-            console.error("Failed to save:", errorText);
-            alert(`Failed to save quiz: ${response.status} ${response.statusText}`);
-        }
+      await createQuiz(payload);
+      alert('Quiz Published Successfully!');
+      router.push(URLS.QUIZZES);
     } catch (error) {
-        console.error("Network Error:", error);
-        alert('Network error occurred while saving quiz.');
+      console.error("Failed to save quiz:", error);
+      alert('Failed to save quiz. Please try again.');
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
 
@@ -225,7 +185,7 @@ export default function CreateQuizPage() {
             </h2>
             
             <div className="grid md:grid-cols-2 gap-6">
-                {/* Left Col: Title & Desc */}
+                {/* Left Col: Title, Desc & Time */}
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Quiz Title *</label>
@@ -247,6 +207,27 @@ export default function CreateQuizPage() {
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                          Time Limit (seconds)
+                        </label>
+                        <input
+                          type="number"
+                          min={30}
+                          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                          value={timeLimitSeconds}
+                          onChange={(e) =>
+                            setTimeLimitSeconds(
+                              Number.isNaN(Number(e.target.value))
+                                ? 0
+                                : Number(e.target.value),
+                            )
+                          }
+                        />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          This is the total time given to solve the quiz.
+                        </p>
                     </div>
                 </div>
 
